@@ -262,37 +262,188 @@ def recomendar_amigos(grafo, usuario):
 # --------------------------
 # Visualización con matplotlib
 # --------------------------
-def dibujar_grafo(grafo, usuarios, camino=None, archivo="red_social"):
-    G = nx.Graph()
+def dibujar_grafo(grafo, usuarios, camino=None, archivo="red_social",
+                  top_labels=25, seed=42):
+    """
+    Visualización estética y foco en el camino corto si se provee.
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import networkx as nx
 
-    # Agregar nodos con etiquetas (nombre del usuario)
+    # --- Construcción del grafo NX -----------------------------------------
+    G = nx.Graph()
     for nodo, nombre in usuarios.items():
         G.add_node(nodo, label=nombre)
 
-    # Agregar aristas (amistades)
-    for nodo, vecinos in grafo.items():
+    # Asegurar que todas las aristas estén en el grafo (ambas direcciones)
+    for u, vecinos in grafo.items():
         for v in vecinos:
-            if not G.has_edge(nodo, v):
-                G.add_edge(nodo, v)
+            G.add_edge(u, v)  # Añadir todas las aristas sin condiciones
 
-    # Posiciones de los nodos
-    pos = nx.spring_layout(G, seed=42)
+    # Layout mejorado
+    n = max(len(G), 1)
+    k = 3.0 / np.sqrt(n)
+    pos = nx.spring_layout(G, seed=seed, k=k, iterations=100)
 
-    # Dibujar nodos
-    nx.draw_networkx_nodes(G, pos, node_size=1000, node_color="lightblue")
+    # Tamaño de nodo ~ grado (acotado)
+    degrees = dict(G.degree())
+    node_order = list(G.nodes())
+    base_sizes = [max(300, min(300 + 100 * degrees.get(v, 0), 2000)) for v in node_order]
 
-    # Dibujar aristas
-    nx.draw_networkx_edges(G, pos, edge_color="gray")
+    # --- Dibujo -------------------------------------------------------------
+    plt.figure(figsize=(14, 10), dpi=140)
+    plt.title("Red Social", fontsize=18, pad=12)
 
-    # Resaltar camino más corto en rojo
+    if not camino:
+        # Grafo general
+        nx.draw_networkx_edges(G, pos, width=0.8, alpha=0.3, edge_color="gray")
+
+        nx.draw_networkx_nodes(
+            G, pos,
+            node_size=base_sizes,
+            node_color="#b7def1",
+            linewidths=1.0,
+            edgecolors="#3b7aa0",
+        )
+
+        # Etiquetas: solo top por grado
+        top_by_degree = sorted(degrees, key=degrees.get, reverse=True)[:top_labels]
+        etiquetas = {n: usuarios.get(n, n) for n in top_by_degree if n in G}
+        nx.draw_networkx_labels(
+            G, pos, labels=etiquetas,
+            font_size=9, font_weight="bold",
+            bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.9),
+        )
+
+    else:
+        # ------------------- Modo foco en camino corto ----------------------
+        camino = list(camino)
+        camino_set = set(camino)
+        
+        # 1) Primero dibujar aristas fuera del camino - más tenues
+        otras_aristas = [(u, v) for (u, v) in G.edges() 
+                        if (u not in camino_set or v not in camino_set)]
+        nx.draw_networkx_edges(G, pos, edgelist=otras_aristas,
+                              width=0.8, alpha=0.15, edge_color="gray", style="dashed")
+
+        # 2) RESALTAR CAMINO - LÍNEAS ROJAS MÁS GRUESAS Y VISIBLES
+        # Crear lista de aristas del camino
+        edges_camino = []
+        for i in range(len(camino)-1):
+           
+            # Normalizamos ids: str + strip para tolerar espacios/enteros
+            u = str(camino[i]).strip()
+            v = str(camino[i + 1]).strip()
+
+             # Aseguramos existencia de nodos en G
+            if not G.has_node(u) or not G.has_node(v):
+                print(f"[AVISO] Nodo faltante en el grafo: {u} o {v}")
+                continue
+
+             # Si el grafo quedó con arista en una sola dirección, la añadimos para dibujar
+            if not (G.has_edge(u, v) or G.has_edge(v, u)):
+                G.add_edge(u, v)
+
+            edges_camino.append((u, v))
+
+        if edges_camino:
+            nx.draw_networkx_edges(
+                G, pos, 
+                edgelist=edges_camino,
+                edge_color="#b71c1c",           # Rojo puro
+                width=8.0,                  # Más grueso
+                alpha=1.0,                  # Completamente opaco
+                style="solid"
+            )
+
+        # 3) Nodos fuera del camino - tenues
+        otros_nodos = [n for n in G.nodes() if n not in camino_set]
+        otros_sizes = [base_sizes[node_order.index(n)] for n in otros_nodos]
+        nx.draw_networkx_nodes(
+            G, pos, nodelist=otros_nodos,
+            node_size=otros_sizes,
+            node_color="#e0e0e0", 
+            edgecolors="#9e9e9e", 
+            linewidths=0.8, 
+            alpha=0.4
+        )
+
+        # 4) Nodos del camino - amarillo brillante
+        camino_sizes = [base_sizes[node_order.index(n)] for n in camino]
+        nx.draw_networkx_nodes(
+            G, pos, nodelist=camino,
+            node_size=camino_sizes,
+            node_color="#ffeb3b",     # Amarillo más brillante
+            edgecolors="#ff9800",     # Borde naranja
+            linewidths=2.0,           # Borde más grueso
+            alpha=0.9
+        )
+
+        # 5) Etiquetas del camino
+        etiquetas_camino = {}
+        for i, n in enumerate(camino, start=1):
+            nombre = usuarios.get(n, n)
+            etiquetas_camino[n] = f"{i}. {nombre}"
+        
+        nx.draw_networkx_labels(
+            G, pos, 
+            labels=etiquetas_camino, 
+            font_size=11, 
+            font_weight="bold",
+            font_color="#000000",
+            bbox=dict(
+                boxstyle="round,pad=0.4", 
+                fc="yellow",           # Fondo amarillo para mejor contraste
+                ec="orange", 
+                alpha=0.95,
+                lw=2
+            )
+        )
+
+        # 6) Origen y Destino con colores distintos y muy visibles
+        origen, destino = camino[0], camino[-1]
+        
+        # Origen - Verde brillante
+        nx.draw_networkx_nodes(
+            G, pos, nodelist=[origen],
+            node_color="#4caf50",      # Verde más brillante
+            node_size=[base_sizes[node_order.index(origen)] * 1.5],  # Más grande
+            edgecolors="#1b5e20",      # Borde verde oscuro
+            linewidths=3.0
+        )
+        
+        # Destino - Rojo brillante  
+        nx.draw_networkx_nodes(
+            G, pos, nodelist=[destino],
+            node_color="#f44336",      # Rojo más brillante
+            node_size=[base_sizes[node_order.index(destino)] * 1.5],  # Más grande
+            edgecolors="#b71c1c",      # Borde rojo oscuro
+            linewidths=3.0
+        )
+
+    # Leyenda
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color="gray", lw=2, alpha=0.3, label="Amistad"),
+        Line2D([0], [0], marker="o", color="w", label="Nodo (tamaño ~ grado)",
+               markerfacecolor="#b7def1", markeredgecolor="#3b7aa0", markersize=12),
+    ]
+    
     if camino:
-        edges_camino = list(zip(camino, camino[1:]))
-        nx.draw_networkx_edges(G, pos, edgelist=edges_camino, edge_color="red", width=3)
+        legend_elements += [
+            Line2D([0], [0], color="red", lw=6, label="Camino más corto"),
+            Line2D([0], [0], marker="o", color="w", label="Nodos del camino",
+                   markerfacecolor="#ffeb3b", markeredgecolor="#ff9800", markersize=12),
+            Line2D([0], [0], marker="o", color="w", label="Origen",
+                   markerfacecolor="#4caf50", markeredgecolor="#1b5e20", markersize=12),
+            Line2D([0], [0], marker="o", color="w", label="Destino",
+                   markerfacecolor="#f44336", markeredgecolor="#b71c1c", markersize=12),
+        ]
 
-    # Dibujar etiquetas con los nombres
-    etiquetas = {nodo: usuarios[nodo] for nodo in G.nodes()}
-    nx.draw_networkx_labels(G, pos, labels=etiquetas, font_size=10, font_weight="bold")
+    plt.legend(handles=legend_elements, loc="upper left", frameon=True, 
+               framealpha=0.9, facecolor="white")
 
-    plt.title("Red Social")
     plt.axis("off")
+    plt.tight_layout()
     plt.show()
