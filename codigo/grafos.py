@@ -46,7 +46,7 @@ class UFDS:
 
 # Utilidades internas
 def _abrir_hoja(path_xlsx: str):
-    """ABRE ARCHIVO EXCEL"""
+    #ABRE ARCHIVO EXCEL
     archivo = os.path.join(DATASET_DIR, path_xlsx)
     if not os.path.exists(archivo):
         raise FileNotFoundError(
@@ -94,7 +94,7 @@ def cargar_grafo():
 
 # Cargar comunidades desde comunidades.xlsx
 def cargar_comunidades():
-    """Cargar comunidades desde Excel."""
+    #Cargar comunidades desde Excel.
     comunidades = defaultdict(list)  # id_comunidad -> [usuarios]
     nombres_comunidades = {}  # id_comunidad -> nombre
     usuario_comunidad = {}  # id_usuario -> id_comunidad
@@ -124,7 +124,7 @@ def cargar_comunidades():
 
 # Guardar comunidades en Excel
 def guardar_comunidades(comunidades, nombres_comunidades):
-    """Guarda comunidades en Excel."""
+    #Guarda comunidades en Excel
     archivo = os.path.join(DATASET_DIR, "comunidades.xlsx")
     
     wb = Workbook()
@@ -151,7 +151,7 @@ class SistemaComunidades:
         self._inicializar_ufds()
     
     def _inicializar_ufds(self):
-        """Inicializa UFDS con los usuarios de las comunidades"""
+        #Inicializa UFDS con los usuarios de las comunidades
         for id_com, usuarios in self.comunidades.items():
             for usuario in usuarios:
                 self.ufds.make_set(usuario)
@@ -161,7 +161,7 @@ class SistemaComunidades:
                     self.ufds.union(primer_usuario, usuario)
     
     def crear_comunidad(self, nombre_comunidad, usuarios):
-        """Crea una nueva comunidad"""
+        #Crear una nueva comunidad
         if not usuarios:
             return False, "Debe incluir al menos un usuario"
         
@@ -187,15 +187,15 @@ class SistemaComunidades:
         return True, f"Comunidad '{nombre_comunidad}' creada exitosamente"
     
     def obtener_comunidad_usuario(self, usuario_id):
-        """Obtiene la comunidad de un usuario"""
+        #Obtiene la comunidad de un usuario
         return self.usuario_comunidad.get(usuario_id)
     
     def obtener_usuarios_comunidad(self, comunidad_id):
-        """Obtiene todos los usuarios de una comunidad"""
+        #Obtiene todos los usuarios de una comunidad
         return self.comunidades.get(comunidad_id, [])
     
     def obtener_todas_comunidades(self, usuarios_dict):
-        """Obtiene todas las comunidades con sus nombres y usuarios"""
+        #Obtiene todas las comunidades con sus nombres y usuarios
         resultado = []
         for id_com, usuarios_lista in self.comunidades.items():
             nombre = self.nombres_comunidades.get(id_com, f"Comunidad {id_com}")
@@ -210,7 +210,7 @@ class SistemaComunidades:
         return resultado
     
     def son_misma_comunidad(self, usuario1, usuario2):
-        """Verifica si dos usuarios estan en la misma comunidad"""
+        #Verifica si dos usuarios estan en la misma comunidad
         if usuario1 not in self.ufds.parent or usuario2 not in self.ufds.parent:
             return False
         return self.ufds.find(usuario1) == self.ufds.find(usuario2)
@@ -218,7 +218,7 @@ class SistemaComunidades:
 
 # BFS para el camino mas corto
 def camino_mas_corto(grafo, inicio, destino):
-    """Encuentra el camino más corto usando BFS"""
+    #Encuentra el camino mas corto usando BFS
     cola = deque([(inicio, [inicio])])
     visitados = set([inicio])
 
@@ -235,7 +235,7 @@ def camino_mas_corto(grafo, inicio, destino):
 
 # Recomendacion de amigos
 def recomendar_amigos(grafo, usuario):
-    """Devuelve amigos de amigos que no sean ya amigos directos"""
+    #Devuelve amigos de amigos que no sean ya amigos directos
     directos = set(grafo[usuario])
     sugerencias = set()
     for amigo in directos:
@@ -247,7 +247,7 @@ def recomendar_amigos(grafo, usuario):
 
 # Calcular grado de cada nodo
 def calcular_grados(grafo):
-    """Calcula el grado de cada nodo en el grafo"""
+    #Calcula el grado de cada nodo en el grafo
     grados = {}
     for nodo, vecinos in grafo.items():
         grados[nodo] = len(vecinos)
@@ -260,18 +260,18 @@ def calcular_grados(grafo):
 
 # Obtener subgrafo relevante (vecindario de N saltos)
 def obtener_subgrafo(grafo, nodos_centrales, saltos=2):
-    """
-    Obtiene un subgrafo que incluye los nodos centrales y sus vecinos hasta N saltos.
     
-    Args:
-        grafo: grafo completo
-        nodos_centrales: lista de nodos centrales para el subgrafo
-        saltos: número de saltos desde los nodos centrales
+    #Obtiene un subgrafo que incluye los nodos centrales y sus vecinos hasta N saltos.
     
-    Returns:
-        subgrafo: diccionario con solo los nodos relevantes
-        nodos_incluidos: conjunto de nodos en el subgrafo
-    """
+    #Args:
+    #    grafo: grafo completo
+    #    nodos_centrales: lista de nodos centrales para el subgrafo
+    #    saltos: numero de saltos desde los nodos centrales
+    
+    #Returns:
+    #    subgrafo: diccionario con solo los nodos relevantes
+    #    nodos_incluidos: conjunto de nodos en el subgrafo
+    
     nodos_incluidos = set(nodos_centrales)
     nodos_por_explorar = set(nodos_centrales)
     
@@ -295,7 +295,7 @@ def obtener_subgrafo(grafo, nodos_centrales, saltos=2):
     return subgrafo, nodos_incluidos
 
 
-# Clase para visualización interactiva en Canvas
+# Clase para visualizacion interactiva del grafo
 class VisualizadorGrafo:
     def __init__(self, canvas, grafo, usuarios, ancho=800, alto=600):
         self.canvas = canvas
@@ -311,15 +311,15 @@ class VisualizadorGrafo:
         self.offset_y = 0
         
     def limpiar(self):
-        """Limpia el canvas"""
+        #Limpia el canvas
         self.canvas.delete("all")
         self.nodos_dibujados = {}
         self.aristas_dibujadas = []
         
     def calcular_layout_fuerza(self, nodos, iteraciones=50):
-        """
-        Calcula las posiciones usando un algoritmo de fuerza simplificado.
-        """
+        
+        #Calcula las posiciones usando un algoritmo de fuerza simplificado.
+        
         # Inicializar posiciones aleatoriamente
         posiciones = {}
         for nodo in nodos:
@@ -328,16 +328,16 @@ class VisualizadorGrafo:
                 random.uniform(100, self.alto - 100)
             ]
         
-        # Parámetros del algoritmo
+        # Parametros del algoritmo
         k = math.sqrt((self.ancho * self.alto) / len(nodos)) if len(nodos) > 0 else 100
-        c_rep = k * k  # Constante de repulsión
+        c_rep = k * k  # Constante de repulsion
         c_spring = 1.0  # Constante del resorte
-        damping = 0.9  # Factor de amortiguación
+        damping = 0.9  # Factor de amortiguacion
         
         for _ in range(iteraciones):
             fuerzas = {nodo: [0, 0] for nodo in nodos}
             
-            # Fuerzas de repulsión entre todos los nodos
+            # Fuerzas de repulsion entre todos los nodos
             nodos_lista = list(nodos)
             for i, nodo1 in enumerate(nodos_lista):
                 for nodo2 in nodos_lista[i+1:]:
@@ -346,7 +346,7 @@ class VisualizadorGrafo:
                     dist = math.sqrt(dx*dx + dy*dy)
                     
                     if dist > 0:
-                        # Fuerza de repulsión
+                        # Fuerza de repulsion
                         f_rep = c_rep / (dist * dist)
                         fx = (dx / dist) * f_rep
                         fy = (dy / dist) * f_rep
@@ -356,7 +356,7 @@ class VisualizadorGrafo:
                         fuerzas[nodo2][0] += fx
                         fuerzas[nodo2][1] += fy
             
-            # Fuerzas de atracción para nodos conectados
+            # Fuerzas de atraccion para nodos conectados
             for nodo in nodos:
                 if nodo in self.grafo:
                     for vecino in self.grafo[nodo]:
@@ -379,21 +379,21 @@ class VisualizadorGrafo:
                 posiciones[nodo][0] += fuerzas[nodo][0] * damping
                 posiciones[nodo][1] += fuerzas[nodo][1] * damping
                 
-                # Mantener dentro de los límites
+                # Mantener dentro de los limites
                 posiciones[nodo][0] = max(50, min(self.ancho - 50, posiciones[nodo][0]))
                 posiciones[nodo][1] = max(50, min(self.alto - 50, posiciones[nodo][1]))
         
         return posiciones
     
     def dibujar_grafo(self, subgrafo=None, camino=None, nodos_destacados=None):
-        """
-        Dibuja el grafo en el canvas.
         
-        Args:
-            subgrafo: si se proporciona, solo dibuja este subgrafo
-            camino: lista de nodos que forman un camino para destacar
-            nodos_destacados: conjunto de nodos para destacar
-        """
+        #Dibuja el grafo en el canvas.
+        
+        #Args:
+        #    subgrafo: si se proporciona, solo dibuja este subgrafo
+        #    camino: lista de nodos que forman un camino para destacar
+        #    nodos_destacados: conjunto de nodos para destacar
+        
         self.limpiar()
         
         grafo_a_dibujar = subgrafo if subgrafo else self.grafo
@@ -410,7 +410,7 @@ class VisualizadorGrafo:
         # Calcular posiciones
         self.posiciones = self.calcular_layout_fuerza(nodos)
         
-        # Dibujar aristas primero (para que queden detrás de los nodos)
+        # Dibujar aristas primero para que queden debajo de los nodos
         aristas_dibujadas = set()
         for nodo in grafo_a_dibujar:
             for vecino in grafo_a_dibujar[nodo]:
@@ -426,7 +426,7 @@ class VisualizadorGrafo:
                     ancho = 1
                     
                     if camino:
-                        # Verificar si la arista está en el camino
+                        # Verificar si la arista esta en el camino
                         for i in range(len(camino) - 1):
                             if (camino[i] == nodo and camino[i+1] == vecino) or \
                                (camino[i] == vecino and camino[i+1] == nodo):
@@ -469,7 +469,7 @@ class VisualizadorGrafo:
                         color = "#9c27b0"
                         color_texto = "white"
                 
-                # Dibujar círculo del nodo
+                # Dibujar circulo del nodo
                 circulo = self.canvas.create_oval(
                     x - radio, y - radio,
                     x + radio, y + radio,
@@ -497,7 +497,7 @@ class VisualizadorGrafo:
                 self.agregar_tooltip(nodo, circulo)
     
     def agregar_tooltip(self, nodo_id, elemento):
-        """Agrega un tooltip al pasar el mouse sobre un nodo"""
+        #Agrega un tooltip al pasar el mouse sobre un nodo
         nombre_completo = self.usuarios.get(nodo_id, f"Usuario {nodo_id}")
         grado = len(self.grafo.get(nodo_id, []))
         
@@ -530,15 +530,15 @@ class VisualizadorGrafo:
         self.canvas.tag_bind(elemento, "<Leave>", ocultar_tooltip)
 
 
-# Análisis del grafo
+# Analisis del grafo
 def analizar_grafo(grafo, usuarios):
-    """
-    Analiza las propiedades del grafo sin usar NetworkX
-    """
+   
+    #Analiza las propiedades del grafo y devuelve estadisticas 
+    
     # Calcular grados
     grados = calcular_grados(grafo)
     
-    # Estadísticas básicas
+    # Estadisticas basicas
     num_nodos = len(usuarios)
     num_aristas = sum(len(vecinos) for vecinos in grafo.values()) // 2
     
@@ -547,7 +547,7 @@ def analizar_grafo(grafo, usuarios):
         grado_max = max(grados.values())
         grado_min = min(grados.values())
         
-        # Encontrar nodos más conectados
+        # Encontrar nodos
         nodos_mas_conectados = sorted(grados.items(), 
                                      key=lambda x: x[1], 
                                      reverse=True)[:5]
@@ -571,11 +571,11 @@ def analizar_grafo(grafo, usuarios):
     }
 
 
-# Funciones auxiliares para visualización simplificada (mantener compatibilidad)
+# Funciones auxiliares para visualizacion simplificada (mantener compatibilidad)
 def dibujar_grafo_graphviz(*args, **kwargs):
-    """Función mantenida por compatibilidad pero ya no usada"""
-    return "Visualización integrada en la interfaz"
+    #Funcion mantenida por compatibilidad pero ya no usada
+    return "Visualizacion integrada en la interfaz"
 
 def dibujar_grafo_comunidades(*args, **kwargs):
-    """Función mantenida por compatibilidad pero ya no usada"""
-    return "Visualización integrada en la interfaz"
+    #Funcion mantenida por compatibilidad pero ya no usada
+    return "Visualizacion integrada en la interfaz"

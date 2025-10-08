@@ -17,7 +17,7 @@ sistema_comunidades = SistemaComunidades()
 class RedSocialApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("🌐 Mini Red Social")
+        self.root.title(" Mini Red Social")
         self.root.geometry("1200x700")
         self.root.configure(bg="white")
         
@@ -57,7 +57,7 @@ class RedSocialApp:
         """Crea los controles en el panel izquierdo"""
         
         # Título
-        tk.Label(self.panel_izquierdo, text="🌐 Mini Red Social", 
+        tk.Label(self.panel_izquierdo, text=" Mini Red Social", 
                  font=("Arial", 16, "bold"), bg="white").pack(pady=10)
         
         # Frame para selección de usuarios
@@ -78,21 +78,21 @@ class RedSocialApp:
         tk.Frame(self.panel_izquierdo, height=2, bg="#e0e0e0").pack(fill="x", pady=10)
         
         # Sección de Búsqueda y Análisis
-        tk.Label(self.panel_izquierdo, text="📊 Búsqueda y Análisis", 
+        tk.Label(self.panel_izquierdo, text=" Búsqueda y Análisis", 
                 font=("Arial", 12, "bold"), bg="white").pack(pady=5)
         
         frame_busqueda = tk.Frame(self.panel_izquierdo, bg="white")
         frame_busqueda.pack(pady=5)
         
-        tk.Button(frame_busqueda, text="🔍 Buscar camino", 
+        tk.Button(frame_busqueda, text=" Buscar camino", 
                  command=self.buscar_camino, bg="#4CAF50", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
-        tk.Button(frame_busqueda, text="👥 Recomendar amigos", 
+        tk.Button(frame_busqueda, text=" Recomendar amigos", 
                  command=self.mostrar_recomendaciones, bg="#2196F3", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
-        tk.Button(frame_busqueda, text="📝 Ver feed", 
+        tk.Button(frame_busqueda, text=" Ver feed", 
                  command=self.mostrar_feed, bg="#FF9800", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
@@ -100,7 +100,7 @@ class RedSocialApp:
         tk.Frame(self.panel_izquierdo, height=2, bg="#e0e0e0").pack(fill="x", pady=10)
         
         # Sección de Visualización
-        tk.Label(self.panel_izquierdo, text="🎨 Opciones de Visualización", 
+        tk.Label(self.panel_izquierdo, text=" Opciones de Visualización", 
                 font=("Arial", 12, "bold"), bg="white").pack(pady=5)
         
         frame_visual = tk.Frame(self.panel_izquierdo, bg="white")
@@ -118,15 +118,15 @@ class RedSocialApp:
                                       bg="white", length=200)
         self.slider_alcance.pack(pady=5)
         
-        tk.Button(frame_visual, text="🔄 Ver grafo completo", 
+        tk.Button(frame_visual, text=" Ver grafo completo", 
                  command=self.visualizar_grafo_completo, bg="#00BCD4", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
-        tk.Button(frame_visual, text="👤 Ver vecindario", 
+        tk.Button(frame_visual, text=" Ver vecindario", 
                  command=self.visualizar_vecindario, bg="#9C27B0", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
-        tk.Button(frame_visual, text="🏘️ Ver comunidades", 
+        tk.Button(frame_visual, text=" Ver comunidades", 
                  command=self.visualizar_comunidades, bg="#673AB7", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
@@ -134,22 +134,22 @@ class RedSocialApp:
         tk.Frame(self.panel_izquierdo, height=2, bg="#e0e0e0").pack(fill="x", pady=10)
         
         # Sección de Comunidades
-        tk.Label(self.panel_izquierdo, text="🏘️ Gestión de Comunidades", 
+        tk.Label(self.panel_izquierdo, text=" Gestión de Comunidades", 
                 font=("Arial", 12, "bold"), bg="white").pack(pady=5)
         
         frame_comunidades = tk.Frame(self.panel_izquierdo, bg="white")
         frame_comunidades.pack(pady=5)
         
-        tk.Button(frame_comunidades, text="➕ Crear comunidad", 
+        tk.Button(frame_comunidades, text=" Crear comunidad", 
                  command=self.crear_comunidad, bg="#E91E63", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
-        tk.Button(frame_comunidades, text="📋 Ver comunidades", 
+        tk.Button(frame_comunidades, text=" Ver comunidades", 
                  command=self.ver_comunidades, bg="#9E9E9E", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
         # Botón de estadísticas
-        tk.Button(self.panel_izquierdo, text="📊 Ver Estadísticas", 
+        tk.Button(self.panel_izquierdo, text=" Ver Estadísticas", 
                  command=self.mostrar_estadisticas, bg="#607D8B", fg="white",
                  font=("Arial", 10), width=20).pack(pady=10)
     
@@ -157,18 +157,18 @@ class RedSocialApp:
         """Crea el área de visualización del grafo"""
         
         # Título del panel
-        tk.Label(self.panel_derecho, text="📈 Visualización del Grafo", 
+        tk.Label(self.panel_derecho, text=" Visualización del Grafo", 
                 font=("Arial", 14, "bold"), bg="#f0f0f0").pack(pady=5)
         
         # Frame para controles de zoom
         control_frame = tk.Frame(self.panel_derecho, bg="#f0f0f0")
         control_frame.pack(fill="x", padx=10)
         
-        tk.Button(control_frame, text="🔍+", command=self.zoom_in,
+        tk.Button(control_frame, text="+", command=self.zoom_in,
                  font=("Arial", 10), width=3).pack(side="left", padx=2)
-        tk.Button(control_frame, text="🔍-", command=self.zoom_out,
+        tk.Button(control_frame, text="-", command=self.zoom_out,
                  font=("Arial", 10), width=3).pack(side="left", padx=2)
-        tk.Button(control_frame, text="🔄", command=self.reset_view,
+        tk.Button(control_frame, text="🔎", command=self.reset_view,
                  font=("Arial", 10), width=3).pack(side="left", padx=2)
         
         self.info_label = tk.Label(control_frame, text="", bg="#f0f0f0", font=("Arial", 9))
@@ -242,7 +242,7 @@ class RedSocialApp:
             self.mostrar_detalle_camino(camino)
         else:
             messagebox.showerror("Sin conexión", 
-                               f"❌ No existe un camino entre {u1} y {u2}.")
+                               f" No existe un camino entre {u1} y {u2}.")
     
     def mostrar_detalle_camino(self, camino):
         """Muestra una ventana con los detalles del camino"""
@@ -251,7 +251,7 @@ class RedSocialApp:
         ventana.geometry("350x300")
         ventana.configure(bg="white")
         
-        tk.Label(ventana, text="📍 Camino Encontrado", 
+        tk.Label(ventana, text=" Camino Encontrado", 
                 font=("Arial", 14, "bold"), bg="white").pack(pady=10)
         
         frame = tk.Frame(ventana, bg="white")
@@ -263,13 +263,13 @@ class RedSocialApp:
         for i, nodo_id in enumerate(camino):
             nombre = usuarios.get(nodo_id, f"Usuario {nodo_id}")
             if i == 0:
-                texto.insert(tk.END, f"🟢 {i+1}. {nombre} (Origen)\n")
+                texto.insert(tk.END, f" {i+1}. {nombre} (Origen)\n")
             elif i == len(camino) - 1:
-                texto.insert(tk.END, f"🔴 {i+1}. {nombre} (Destino)\n")
+                texto.insert(tk.END, f" {i+1}. {nombre} (Destino)\n")
             else:
-                texto.insert(tk.END, f"🟡 {i+1}. {nombre}\n")
+                texto.insert(tk.END, f" {i+1}. {nombre}\n")
         
-        texto.insert(tk.END, f"\n📏 Distancia: {len(camino)-1} saltos")
+        texto.insert(tk.END, f"\n Distancia: {len(camino)-1} saltos")
         texto.config(state=tk.DISABLED)
     
     def mostrar_recomendaciones(self):
@@ -305,7 +305,7 @@ class RedSocialApp:
         ventana.geometry("300x400")
         ventana.configure(bg="white")
         
-        tk.Label(ventana, text=f"👥 Amigos sugeridos", 
+        tk.Label(ventana, text=f" Amigos sugeridos", 
                 font=("Arial", 14, "bold"), bg="white").pack(pady=10)
         
         frame = tk.Frame(ventana, bg="white")
@@ -350,7 +350,7 @@ class RedSocialApp:
         ventana.geometry("400x300")
         ventana.configure(bg="white")
         
-        tk.Label(ventana, text=f"📝 Publicaciones de {u}", 
+        tk.Label(ventana, text=f" Publicaciones de {u}", 
                 font=("Arial", 14, "bold"), bg="white").pack(pady=10)
         
         frame_post = tk.Frame(ventana, bg="#f5f5f5", relief=tk.RAISED, bd=1)
@@ -433,7 +433,7 @@ class RedSocialApp:
         ventana.geometry("350x450")
         ventana.configure(bg="white")
         
-        tk.Label(ventana, text="🏘️ Crear Nueva Comunidad", 
+        tk.Label(ventana, text=" Crear Nueva Comunidad", 
                 font=("Arial", 14, "bold"), bg="white").pack(pady=10)
         
         tk.Label(ventana, text="Nombre de la comunidad:", 
@@ -487,7 +487,7 @@ class RedSocialApp:
             else:
                 messagebox.showerror("Error", mensaje)
         
-        tk.Button(ventana, text="✅ Crear Comunidad", 
+        tk.Button(ventana, text=" Crear Comunidad", 
                  command=confirmar, bg="#4CAF50", fg="white",
                  font=("Arial", 11)).pack(pady=15)
     
@@ -500,7 +500,7 @@ class RedSocialApp:
         ventana.geometry("450x400")
         ventana.configure(bg="white")
         
-        tk.Label(ventana, text="🏘️ Comunidades Existentes", 
+        tk.Label(ventana, text=" Comunidades Existentes", 
                 font=("Arial", 14, "bold"), bg="white").pack(pady=10)
         
         if not comunidades:
@@ -526,7 +526,7 @@ class RedSocialApp:
                 frame_com = tk.Frame(scrollable_frame, bg="#f0f0f0", relief=tk.RAISED, bd=1)
                 frame_com.pack(fill="x", pady=5, padx=10)
                 
-                tk.Label(frame_com, text=f"🏠 {com['nombre']}", 
+                tk.Label(frame_com, text=f" {com['nombre']}", 
                         font=("Arial", 11, "bold"), bg="#f0f0f0").pack(anchor="w", pady=(5,0), padx=10)
                 
                 usuarios_text = ", ".join(com['nombres_usuarios'][:5])
@@ -548,14 +548,14 @@ class RedSocialApp:
         ventana.geometry("400x450")
         ventana.configure(bg="white")
         
-        tk.Label(ventana, text="📊 Estadísticas de la Red", 
+        tk.Label(ventana, text=" Estadísticas de la Red", 
                 font=("Arial", 14, "bold"), bg="white").pack(pady=10)
         
         frame = tk.Frame(ventana, bg="#f5f5f5", relief=tk.RAISED, bd=1)
         frame.pack(padx=20, pady=10, fill="both", expand=True)
         
         texto_stats = f"""
-    📈 ESTADÍSTICAS GENERALES
+     ESTADÍSTICAS GENERALES
     
     • Número de usuarios: {stats['num_nodos']}
     • Número de conexiones: {stats['num_aristas']}
@@ -564,7 +564,7 @@ class RedSocialApp:
     • Grado mínimo: {stats['grado_min']}
     • Densidad del grafo: {stats['densidad']:.4f}
     
-    🏆 TOP 5 USUARIOS MÁS CONECTADOS:
+     TOP 5 USUARIOS MÁS CONECTADOS:
     """
         
         for i, (nodo_id, grado) in enumerate(stats['nodos_mas_conectados'][:5], 1):
