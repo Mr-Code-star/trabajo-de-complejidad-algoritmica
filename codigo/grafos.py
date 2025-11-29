@@ -73,6 +73,108 @@ def cargar_usuarios():
 
     return usuarios, posts
 
+def cargar_posts():
+    """
+    Carga todos los posts desde posts.xlsx.
+    Retorna:
+      - posts_por_id: {id_post(int): {"id_usuario": str, "contenido": str}}
+      - posts_por_usuario: {id_usuario(str): [id_post1, id_post2, ...]}
+    """
+    posts_por_id = {}
+    posts_por_usuario = defaultdict(list)
+
+    try:
+        ws = _abrir_hoja("posts.xlsx")
+    except FileNotFoundError:
+        # Si no existe el archivo, no hay posts aún
+        return posts_por_id, posts_por_usuario
+
+    for id_post, id_usuario, contenido in ws.iter_rows(min_row=2, max_col=3, values_only=True):
+        if id_post is None or id_usuario is None:
+            continue
+
+        pid = int(id_post)
+        uid = str(id_usuario).strip()
+        texto = (contenido or "").strip()
+
+        posts_por_id[pid] = {
+            "id_usuario": uid,
+            "contenido": texto
+        }
+        posts_por_usuario[uid].append(pid)
+
+    return posts_por_id, posts_por_usuario
+
+
+def crear_post(id_usuario, contenido):
+    """
+    Crea un nuevo post para el usuario dado y lo guarda en posts.xlsx.
+    Retorna el nuevo id_post (int).
+    """
+    archivo = os.path.join(DATASET_DIR, "posts.xlsx")
+    id_usuario = str(id_usuario).strip()
+
+    if os.path.exists(archivo):
+        wb = load_workbook(archivo)
+        ws = wb.active
+
+        max_id = 0
+        for id_post, _, _ in ws.iter_rows(min_row=2, max_col=3, values_only=True):
+            if id_post is None:
+                continue
+            try:
+                max_id = max(max_id, int(id_post))
+            except ValueError:
+                continue
+
+        nuevo_id = max_id + 1
+    else:
+        # Crear archivo desde cero
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Posts"
+        ws.append(["id_post", "id_usuario", "contenido"])
+        nuevo_id = 1
+
+    ws.append([nuevo_id, id_usuario, contenido])
+    wb.save(archivo)
+    return nuevo_id
+
+
+def actualizar_post_usuario(id_usuario, nuevo_post):
+    """
+    Actualiza el contenido del post de un usuario en usuarios.xlsx.
+    Retorna (exito: bool, mensaje: str)
+    """
+    archivo = os.path.join(DATASET_DIR, "usuarios.xlsx")
+    
+    if not os.path.exists(archivo):
+        return False, "No se encontró el archivo usuarios.xlsx"
+    
+    wb = load_workbook(archivo)
+    ws = wb.active
+    
+    id_str = str(id_usuario).strip()
+    encontrado = False
+    
+    # Se asume formato: [id, nombre, post] desde la fila 2
+    for row in ws.iter_rows(min_row=2, max_col=3):
+        cell_id = row[0].value
+        if cell_id is None:
+            continue
+        
+        if str(cell_id).strip() == id_str:
+            # Columna 3 = post
+            row[2].value = nuevo_post
+            encontrado = True
+            break
+    
+    if not encontrado:
+        return False, f"No se encontró el usuario con id {id_str}"
+    
+    wb.save(archivo)
+    return True, "Post actualizado correctamente."
+
 
 # Cargar amistades desde amistades.xlsx
 def cargar_grafo():
@@ -120,6 +222,194 @@ def cargar_comunidades():
         pass
     
     return comunidades, nombres_comunidades, usuario_comunidad
+
+# Cargar likes desde likes.xlsx
+def cargar_likes():
+    """
+    Carga los likes desde el archivo likes.xlsx.
+    Retorna una lista de diccionarios:
+    [{'id_like': int, 'id_usuario_like': 'id', 'id_post': int}, ...]
+    """
+    likes = []
+
+    try:
+        ws = _abrir_hoja("likes.xlsx")
+    except FileNotFoundError:
+        # Si no existe el archivo, no hay likes aún
+        return likes
+
+    for id_like, id_usuario_like, id_post in ws.iter_rows(
+            min_row=2, max_col=3, values_only=True):
+
+        if id_like is None or id_usuario_like is None or id_post is None:
+            continue
+
+        likes.append({
+            "id_like": int(id_like),
+            "id_usuario_like": str(id_usuario_like).strip(),
+            "id_post": int(id_post)
+        })
+
+    return likes
+
+
+# Registrar like
+def registrar_like(id_usuario_like, id_post):
+    """
+    Registra un nuevo like en likes.xlsx.
+    - Evita likes duplicados del mismo usuario al mismo post.
+    - Crea el archivo si no existe.
+
+    Retorna: (exito: bool, mensaje: str)
+    """
+    archivo = os.path.join(DATASET_DIR, "likes.xlsx")
+
+    id_usuario_like = str(id_usuario_like).strip()
+    id_post = int(id_post)
+
+    if os.path.exists(archivo):
+        wb = load_workbook(archivo)
+        ws = wb.active
+
+        pares_existentes = set()
+        max_id = 0
+
+        for id_like, u_like, p_id in ws.iter_rows(
+                min_row=2, max_col=3, values_only=True):
+
+            if id_like is None or u_like is None or p_id is None:
+                continue
+
+            u_like_str = str(u_like).strip()
+            try:
+                p_id_int = int(p_id)
+            except ValueError:
+                continue
+
+            pares_existentes.add((u_like_str, p_id_int))
+
+            try:
+                max_id = max(max_id, int(id_like))
+            except ValueError:
+                continue
+
+        if (id_usuario_like, id_post) in pares_existentes:
+            return False, "El usuario ya dio like a este post."
+
+        nuevo_id = max_id + 1
+
+    else:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Likes"
+        ws.append(["id_like", "id_usuario_like", "id_post"])
+        nuevo_id = 1
+
+    ws.append([nuevo_id, id_usuario_like, id_post])
+    wb.save(archivo)
+
+    return True, "Like registrado correctamente."
+
+
+# Contar likes por post
+def contar_likes_por_post(likes):
+    """
+    Recibe la lista de likes (salida de cargar_likes)
+    y devuelve un diccionario: {id_post: cantidad_likes}
+    """
+    conteo = defaultdict(int)
+
+    for row in likes:
+        post_id = row["id_post"]
+        conteo[post_id] += 1
+
+    return conteo
+
+
+# Divide y Venceras
+def max_post_por_likes_divide_venceras(items):
+    """
+    items: lista de tuplas (id_post, likes)
+    Retorna la tupla (id_post, likes) con mayor cantidad de likes,
+    usando la estrategia Divide y Vencerás.
+    """
+    if not items:
+        return None
+    
+    # Caso base: un solo elemento
+    if len(items) == 1:
+        return items[0]
+    
+    # Dividir en dos mitades
+    mid = len(items) // 2
+    izquierda = items[:mid]
+    derecha = items[mid:]
+    
+    # Resolver recursivamente
+    max_izq = max_post_por_likes_divide_venceras(izquierda)
+    max_der = max_post_por_likes_divide_venceras(derecha)
+    
+    # Combinar: quedarse con el que tiene más likes
+    if max_izq[1] >= max_der[1]:
+        return max_izq
+    else:
+        return max_der
+
+def merge_sort_posts_por_likes(items):
+    """
+    Ordena una lista de tuplas (id_post, likes) de MAYOR a MENOR likes
+    usando MergeSort (Divide y Vencerás).
+    """
+    if len(items) <= 1:
+        return items
+    
+    mid = len(items) // 2
+    izquierda = merge_sort_posts_por_likes(items[:mid])
+    derecha = merge_sort_posts_por_likes(items[mid:])
+    
+    return _merge_por_likes(izquierda, derecha)
+
+def _merge_por_likes(izquierda, derecha):
+    """
+    Fase de combinación de MergeSort.
+    Combina dos listas ya ordenadas por likes (descendente).
+    """
+    resultado = []
+    i = j = 0
+    
+    while i < len(izquierda) and j < len(derecha):
+        # >= para que quede de mayor a menor
+        if izquierda[i][1] >= derecha[j][1]:
+            resultado.append(izquierda[i])
+            i += 1
+        else:
+            resultado.append(derecha[j])
+            j += 1
+    
+    # Agregar lo que falte
+    while i < len(izquierda):
+        resultado.append(izquierda[i])
+        i += 1
+    
+    while j < len(derecha):
+        resultado.append(derecha[j])
+        j += 1
+    
+    return resultado
+
+def obtener_top_posts(likes, k=5):
+    """
+    Retorna una lista con los k posts más populares:
+    [(id_post, likes), ...] ya ordenados de mayor a menor.
+    """
+    conteo = contar_likes_por_post(likes)
+    items = list(conteo.items())
+    
+    if not items:
+        return []
+    
+    ordenados = merge_sort_posts_por_likes(items)
+    return ordenados[:k]
 
 
 # Guardar comunidades en Excel
