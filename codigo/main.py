@@ -4,14 +4,28 @@ import os
 from grafos import (cargar_grafo, cargar_usuarios, camino_mas_corto, 
                    recomendar_amigos, obtener_subgrafo,
                    SistemaComunidades, analizar_grafo, 
-                   VisualizadorGrafo, calcular_grados)
+                   VisualizadorGrafo, calcular_grados,
+                   cargar_likes, registrar_like,
+                   contar_likes_por_post,
+                   max_post_por_likes_divide_venceras,
+                   merge_sort_posts_por_likes, obtener_top_posts,
+                   cargar_posts, crear_post)
+
 
 
 # Cargar los datos
-usuarios, posts = cargar_usuarios()
+# Cargar los datos
+usuarios, _ = cargar_usuarios()   # ignoramos el "post" de usuarios.xlsx
 grafo = cargar_grafo()
 sistema_comunidades = SistemaComunidades()
 
+# Nuevo: posts en archivo separado
+posts_por_id, posts_por_usuario = cargar_posts()
+
+# Likes
+likes = cargar_likes()
+top_global = max_post_por_likes_divide_venceras(list(contar_likes_por_post(likes).items())) if likes else None
+ranking = obtener_top_posts(likes, k=5) if likes else []
 
 # Clase principal de la aplicación
 class RedSocialApp:
@@ -32,27 +46,52 @@ class RedSocialApp:
         self.inicializar_visualizacion()
     
     def crear_interfaz(self):
-        """Crea la interfaz principal con dos paneles"""
-        
-        # Frame principal con dos columnas
-        main_frame = Frame(self.root, bg="white")
-        main_frame.pack(fill="both", expand=True)
-        
-        # Panel izquierdo - Controles
-        self.panel_izquierdo = Frame(main_frame, bg="white", width=400)
-        self.panel_izquierdo.pack(side="left", fill="y", padx=10, pady=10)
-        self.panel_izquierdo.pack_propagate(False)
-        
-        # Panel derecho - Visualización
-        self.panel_derecho = Frame(main_frame, bg="#f0f0f0", relief=tk.SUNKEN, bd=2)
-        self.panel_derecho.pack(side="right", fill="both", expand=True, padx=10, pady=10)
-        
-        # Crear controles en panel izquierdo
-        self.crear_controles()
-        
-        # Crear área de visualización en panel derecho
-        self.crear_area_visualizacion()
-    
+            """Crea la interfaz principal con dos paneles"""
+
+            # Frame principal con dos columnas
+            main_frame = Frame(self.root, bg="white")
+            main_frame.pack(fill="both", expand=True)
+
+            # ====== PANEL IZQUIERDO CON SCROLLBAR VERTICAL ======
+            left_container = Frame(main_frame, bg="white", width=400)
+            left_container.pack(side="left", fill="y", padx=10, pady=10)
+            left_container.pack_propagate(False)
+
+            # Canvas para permitir scroll
+            canvas = Canvas(left_container, bg="white", highlightthickness=0)
+            scrollbar = tk.Scrollbar(left_container, orient="vertical", command=canvas.yview)
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            scrollbar.pack(side="right", fill="y")
+            canvas.pack(side="left", fill="both", expand=True)
+
+            # Este frame será el que usabas como panel_izquierdo
+            self.panel_izquierdo = Frame(canvas, bg="white")
+            canvas.create_window((0, 0), window=self.panel_izquierdo, anchor="nw")
+
+            # Actualizar región de scroll cuando cambie el contenido
+            def on_configure(event):
+                canvas.configure(scrollregion=canvas.bbox("all"))
+
+            self.panel_izquierdo.bind("<Configure>", on_configure)
+
+            # Scroll con la rueda del mouse
+            def _on_mousewheel(event):
+                # En Windows suele ser 120 por notch
+                canvas.yview_scroll(-int(event.delta / 120), "units")
+
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+            # ====== PANEL DERECHO - Visualización ======
+            self.panel_derecho = Frame(main_frame, bg="#f0f0f0", relief=tk.SUNKEN, bd=2)
+            self.panel_derecho.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+
+            # Crear controles en panel izquierdo (igual que antes)
+            self.crear_controles()
+
+            # Crear área de visualización en panel derecho
+            self.crear_area_visualizacion()
+
     def crear_controles(self):
         """Crea los controles en el panel izquierdo"""
         
@@ -96,6 +135,23 @@ class RedSocialApp:
                  command=self.mostrar_feed, bg="#FF9800", fg="white",
                  font=("Arial", 10), width=20).pack(pady=3)
         
+        tk.Button(frame_busqueda, text=" Crear nuevo post", 
+         command=self.crear_o_editar_post, bg="#9E9E9E", fg="white",
+         font=("Arial", 10), width=20).pack(pady=3)
+
+        tk.Button(frame_busqueda, text=" Dar like a un post", 
+                 command=self.dar_like_post, bg="#8BC34A", fg="white",
+                 font=("Arial", 10), width=20).pack(pady=3)
+        
+        tk.Button(frame_busqueda, text=" Top 5 posts por likes", 
+                 command=self.mostrar_top_posts, bg="#FFC107", fg="white",
+                 font=("Arial", 10), width=20).pack(pady=3)
+        
+        tk.Button(frame_busqueda, text=" Post más popular", 
+                 command=self.mostrar_post_mas_popular, bg="#FF5722", fg="white",
+                 font=("Arial", 10), width=20).pack(pady=3)
+
+
         # Separador
         tk.Frame(self.panel_izquierdo, height=2, bg="#e0e0e0").pack(fill="x", pady=10)
         
@@ -327,43 +383,367 @@ class RedSocialApp:
                 bg="white", font=("Arial", 9)).pack(pady=10)
     
     def mostrar_feed(self):
-        """Muestra el feed del usuario seleccionado"""
+        """Muestra el feed del usuario seleccionado (todos sus posts)"""
         u = self.combo_user1.get()
         if not u:
             messagebox.showwarning("Error", "Selecciona un usuario primero.")
             return
-        
-        idu = next((k for k,v in usuarios.items() if v == u), None)
-        
+
+        idu = next((k for k, v in usuarios.items() if v == u), None)
+
         # Visualizar el usuario y sus conexiones directas
         nodos_centrales = [idu]
         subgrafo, nodos = obtener_subgrafo(grafo, nodos_centrales, saltos=1)
-        
+
         if self.visualizador:
             self.visualizador.dibujar_grafo(subgrafo, nodos_destacados={idu})
-        
+
         self.info_label.config(text=f"Feed de {u} - {len(grafo.get(idu, []))} amigos")
-        
+
         # Mostrar ventana del feed
         ventana = tk.Toplevel(self.root)
         ventana.title(f"Feed de {u}")
-        ventana.geometry("400x300")
+        ventana.geometry("450x350")
         ventana.configure(bg="white")
-        
+
         tk.Label(ventana, text=f" Publicaciones de {u}", 
-                font=("Arial", 14, "bold"), bg="white").pack(pady=10)
-        
+            font=("Arial", 14, "bold"), bg="white").pack(pady=10)
+
         frame_post = tk.Frame(ventana, bg="#f5f5f5", relief=tk.RAISED, bd=1)
         frame_post.pack(padx=20, pady=10, fill="both", expand=True)
-        
-        post = posts.get(idu, "Este usuario aún no tiene publicaciones...")
-        
+
         texto = tk.Text(frame_post, wrap=tk.WORD, font=("Arial", 10), 
-                       bg="#f5f5f5", relief=tk.FLAT)
+                   bg="#f5f5f5", relief=tk.FLAT)
         texto.pack(padx=10, pady=10, fill="both", expand=True)
-        texto.insert(tk.END, post)
+
+        # Obtener TODOS los posts del usuario
+        post_ids = posts_por_usuario.get(idu, [])
+
+        if not post_ids:
+            texto.insert(tk.END, "Este usuario aún no tiene publicaciones...")
+        else:
+            # Mostrar del más reciente al más antiguo
+            for pid in sorted(post_ids, reverse=True):
+                info_post = posts_por_id.get(pid)
+                if not info_post:
+                    continue
+                contenido = info_post["contenido"]
+                texto.insert(tk.END, f"Post #{pid}\n{contenido}\n\n---------------------------\n\n")
+
         texto.config(state=tk.DISABLED)
-    
+
+    def crear_o_editar_post(self):
+        """
+        Ahora: CREA un nuevo post para el Usuario 1.
+        (Deja de editar el post único de usuarios.xlsx)
+        """
+        global posts_por_id, posts_por_usuario
+
+        u = self.combo_user1.get()
+        if not u:
+            messagebox.showwarning("Error", "Selecciona primero el Usuario 1.")
+            return
+
+        # ID del usuario
+        idu = next((k for k, v in usuarios.items() if v == u), None)
+        if idu is None:
+            messagebox.showerror("Error", "No se encontró el ID del usuario seleccionado.")
+            return
+
+        # Crear ventana
+        ventana = tk.Toplevel(self.root)
+        ventana.title(f"Nuevo post de {u}")
+        ventana.geometry("500x400")
+        ventana.configure(bg="white")
+
+        tk.Label(
+            ventana,
+            text=f"Escribe el nuevo post de {u}:",
+            bg="white",
+            font=("Arial", 11, "bold"),
+            wraplength=460
+        ).pack(pady=10, padx=10)
+
+        frame_post = tk.Frame(ventana, bg="#f5f5f5", relief=tk.RAISED, bd=1)
+        frame_post.pack(padx=20, pady=10, fill="both", expand=True)
+
+        text_widget = tk.Text(
+            frame_post,
+            wrap=tk.WORD,
+            font=("Arial", 10),
+            bg="#f5f5f5",
+            relief=tk.FLAT
+        )
+        text_widget.pack(padx=10, pady=10, fill="both", expand=True)
+
+        def guardar_post():
+            nuevo_post = text_widget.get("1.0", tk.END).strip()
+            if not nuevo_post:
+                messagebox.showwarning("Error", "El post no puede estar vacío.")
+                return
+
+            try:
+                nuevo_id = crear_post(idu, nuevo_post)
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo guardar el post:\n{e}")
+                return
+
+            # Actualizar estructuras en memoria
+            posts_por_id[nuevo_id] = {
+                "id_usuario": idu,
+                "contenido": nuevo_post
+            }
+            posts_por_usuario.setdefault(idu, []).append(nuevo_id)
+
+            messagebox.showinfo("Post guardado", f"Post creado con ID #{nuevo_id}.")
+            ventana.destroy()
+
+        tk.Button(
+            ventana,
+            text="Publicar",
+            command=guardar_post,
+            bg="#4CAF50",
+            fg="white",
+            font=("Arial", 10),
+            width=15
+        ).pack(pady=10)
+
+
+    def dar_like_post(self):
+        """
+        Abre una ventana para que el Usuario 1 seleccione
+        a qué post (específico) quiere darle like.
+        """
+        u_like = self.combo_user1.get()
+        if not u_like:
+            messagebox.showwarning(
+                "Error",
+                "Selecciona primero el Usuario 1 (quien da like)."
+            )
+            return
+
+        # ID del que da like
+        id_like_user = next((k for k, v in usuarios.items() if v == u_like), None)
+        if id_like_user is None:
+            messagebox.showerror("Error", "No se pudo encontrar el ID del usuario que da like.")
+            return
+
+        if not posts_por_id:
+            messagebox.showinfo("Info", "Aún no hay posts publicados.")
+            return
+
+        # Crear ventana para seleccionar el post
+        ventana = tk.Toplevel(self.root)
+        ventana.title(f"Dar like como {u_like}")
+        ventana.geometry("550x400")
+        ventana.configure(bg="white")
+
+        tk.Label(
+            ventana,
+            text=f"Selecciona el post al que {u_like} quiere dar like:",
+            bg="white",
+            font=("Arial", 11, "bold"),
+            wraplength=520
+        ).pack(pady=10, padx=10)
+
+        frame = tk.Frame(ventana, bg="white")
+        frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        listbox = tk.Listbox(frame, font=("Arial", 10), height=10)
+        scrollbar = tk.Scrollbar(frame, orient=tk.VERTICAL, command=listbox.yview)
+        listbox.config(yscrollcommand=scrollbar.set)
+
+        listbox.pack(side=tk.LEFT, fill="both", expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Mapeo visual -> id_post
+        self._mapa_posts_listbox = []  # [id_post, ...]
+
+        # Mostrar posts ordenados del más reciente al más antiguo
+        for post_id in sorted(posts_por_id.keys(), reverse=True):
+            info = posts_por_id[post_id]
+            autor_id = info["id_usuario"]
+            autor_nombre = usuarios.get(autor_id, f"Usuario {autor_id}")
+            post_text = info["contenido"]
+            snippet = post_text if len(post_text) <= 60 else post_text[:57] + "..."
+            display = f"#{post_id} | {autor_nombre}  |  {snippet}"
+            listbox.insert(tk.END, display)
+            self._mapa_posts_listbox.append(post_id)
+
+        frame_botones = tk.Frame(ventana, bg="white")
+        frame_botones.pack(fill="x", padx=10, pady=10)
+
+        def confirmar_like():
+            seleccion = listbox.curselection()
+            if not seleccion:
+                messagebox.showwarning("Error", "Selecciona un post de la lista.")
+                return
+
+            idx = seleccion[0]
+            id_post = self._mapa_posts_listbox[idx]
+            info = posts_por_id.get(id_post)
+            if not info:
+                messagebox.showerror("Error", "No se encontró la información del post.")
+                return
+
+            autor_id = info["id_usuario"]
+            nombre_autor = usuarios.get(autor_id, f"Usuario {autor_id}")
+
+            # Registrar like
+            exito, mensaje = registrar_like(id_like_user, id_post)
+
+            # Recontar likes para ese post
+            likes_actuales = cargar_likes()
+            conteo = contar_likes_por_post(likes_actuales)
+            total_likes = conteo.get(id_post, 0)
+
+            if exito:
+                messagebox.showinfo(
+                    "Like registrado",
+                    f"{mensaje}\n\nEl post #{id_post} de {nombre_autor} ahora tiene {total_likes} like(s)."
+                )
+                ventana.destroy()
+            else:
+                messagebox.showwarning(
+                    "Aviso",
+                    f"{mensaje}\n\nEl post #{id_post} de {nombre_autor} tiene actualmente {total_likes} like(s)."
+                )
+
+        tk.Button(
+            frame_botones,
+            text="Dar like al post seleccionado",
+            command=confirmar_like,
+            bg="#8BC34A",
+            fg="white",
+            font=("Arial", 10),
+            width=30
+        ).pack(pady=5)
+
+    def mostrar_top_posts(self):
+        """
+        Muestra una ventana con el Top 5 posts con más likes
+        y visualiza sus nodos en el grafo.
+        """
+        likes = cargar_likes()
+        if not likes:
+            messagebox.showinfo("Top posts", "Aún no hay likes registrados.")
+            return
+
+        top = obtener_top_posts(likes, k=5)
+        if not top:
+            messagebox.showinfo("Top posts", "Aún no hay likes registrados.")
+            return
+
+        # Visualizar los nodos de los autores en el grafo
+        ids_autores = []
+        for post_id, _ in top:
+            info = posts_por_id.get(post_id)
+            if info:
+                ids_autores.append(info["id_usuario"])
+
+        if not ids_autores:
+            messagebox.showinfo("Top posts", "No se encontraron autores para los posts.")
+            return
+
+        subgrafo, nodos = obtener_subgrafo(grafo, ids_autores, saltos=1)
+
+        if self.visualizador:
+            self.visualizador.dibujar_grafo(subgrafo, nodos_destacados=set(ids_autores))
+            self.info_label.config(
+                text=f"Top {len(top)} posts por likes - {len(nodos)} nodos relacionados"
+            )
+
+        # Ventana con ranking
+        ventana = tk.Toplevel(self.root)
+        ventana.title("Top 5 posts por likes")
+        ventana.geometry("450x380")
+        ventana.configure(bg="white")
+
+        tk.Label(
+            ventana, text=" Top 5 posts por likes",
+            font=("Arial", 14, "bold"), bg="white"
+        ).pack(pady=10)
+
+        frame = tk.Frame(ventana, bg="white")
+        frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        texto = tk.Text(frame, wrap=tk.WORD, font=("Arial", 10),
+                        bg="#f5f5f5", relief=tk.FLAT)
+        texto.pack(fill="both", expand=True)
+
+        for i, (post_id, n_likes) in enumerate(top, 1):
+            info = posts_por_id.get(post_id)
+            if not info:
+                continue
+            autor_id = info["id_usuario"]
+            nombre = usuarios.get(autor_id, f"Usuario {autor_id}")
+            post_text = info["contenido"] or "(sin contenido)"
+            texto.insert(
+                tk.END,
+                f"{i}. Post #{post_id} - {nombre}  -  {n_likes} like(s)\n"
+                f"   Contenido: {post_text}\n\n"
+            )
+
+        texto.config(state=tk.DISABLED)
+
+    def mostrar_post_mas_popular(self):
+        """
+        Muestra el post con más likes usando Divide y Vencerás.
+        """
+        likes = cargar_likes()
+        if not likes:
+            messagebox.showinfo("Post más popular", "Aún no hay likes registrados.")
+            return
+
+        conteo = contar_likes_por_post(likes)
+        items = list(conteo.items())   # [(id_post, likes), ...]
+
+        if not items:
+            messagebox.showinfo("Post más popular", "Aún no hay likes registrados.")
+            return
+
+        post_top = max_post_por_likes_divide_venceras(items)
+        post_id, n_likes = post_top
+
+        info = posts_por_id.get(post_id)
+        if not info:
+            messagebox.showerror("Error", f"No se encontró el post #{post_id}.")
+            return
+
+        autor_id = info["id_usuario"]
+        nombre = usuarios.get(autor_id, f"Usuario {autor_id}")
+        post_text = info["contenido"] or "(sin contenido)"
+
+        # Visualizar al autor en el grafo
+        subgrafo, nodos = obtener_subgrafo(grafo, [autor_id], saltos=1)
+        if self.visualizador:
+            self.visualizador.dibujar_grafo(subgrafo, nodos_destacados={autor_id})
+            self.info_label.config(
+                text=f"Post más popular: #{post_id} de {nombre} con {n_likes} like(s) - {len(nodos)} nodos relacionados"
+            )
+
+        # Ventana con detalle
+        ventana = tk.Toplevel(self.root)
+        ventana.title("Post más popular")
+        ventana.geometry("400x320")
+        ventana.configure(bg="white")
+
+        tk.Label(
+            ventana, text=" Post más popular",
+            font=("Arial", 14, "bold"), bg="white"
+        ).pack(pady=10)
+
+        info_txt = f"Post #{post_id}\nAutor: {nombre}\nLikes: {n_likes}\n\nPost:\n{post_text}"
+
+        frame_post = tk.Frame(ventana, bg="#f5f5f5", relief=tk.RAISED, bd=1)
+        frame_post.pack(padx=20, pady=10, fill="both", expand=True)
+
+        texto = tk.Text(frame_post, wrap=tk.WORD, font=("Arial", 10),
+                        bg="#f5f5f5", relief=tk.FLAT)
+        texto.pack(padx=10, pady=10, fill="both", expand=True)
+        texto.insert(tk.END, info_txt)
+        texto.config(state=tk.DISABLED)
+
     def visualizar_grafo_completo(self):
         """Visualiza el grafo completo (limitado a los nodos más conectados)"""
         # Para grafos grandes, mostrar solo los nodos más conectados
@@ -577,7 +957,7 @@ class RedSocialApp:
         texto.insert(tk.END, texto_stats)
         texto.config(state=tk.DISABLED)
     
-    # Funciones de navegación del canvas
+
     def on_mouse_press(self, event):
         """Guarda la posición inicial del mouse"""
         self.drag_data["x"] = event.x
