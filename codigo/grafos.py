@@ -607,37 +607,54 @@ class VisualizadorGrafo:
         self.aristas_dibujadas = []
         
     def calcular_layout_fuerza(self, nodos, iteraciones=50):
-        
-        #Calcula las posiciones usando un algoritmo de fuerza simplificado.
-        
+        """
+        Calcula las posiciones usando un algoritmo de fuerza simplificado.
+        """
+        # Limitar número de nodos para mejor rendimiento
+        num_nodos = len(nodos)
+    
+        # Ajustar iteraciones según el tamaño
+        if num_nodos > 20:
+            iteraciones = min(30, iteraciones)
+        elif num_nodos > 10:
+            iteraciones = min(40, iteraciones)
+    
         # Inicializar posiciones aleatoriamente
         posiciones = {}
         for nodo in nodos:
             posiciones[nodo] = [
-                random.uniform(100, self.ancho - 100),
-                random.uniform(100, self.alto - 100)
-            ]
+            random.uniform(100, self.ancho - 100),
+            random.uniform(100, self.alto - 100)
+        ]
+    
+        # Si hay pocos nodos, usar layout circular simple
+        if num_nodos <= 5:  # Cambiado de 3 a 5
+            return self._layout_circular(list(nodos))
         
         # Parametros del algoritmo
-        k = math.sqrt((self.ancho * self.alto) / len(nodos)) if len(nodos) > 0 else 100
+        k = math.sqrt((self.ancho * self.alto) / num_nodos) if num_nodos > 0 else 100
         c_rep = k * k  # Constante de repulsion
         c_spring = 1.0  # Constante del resorte
         damping = 0.9  # Factor de amortiguacion
         
-        for _ in range(iteraciones):
+        nodos_lista = list(nodos)
+        
+        for iteracion in range(iteraciones):
+            # Reducir fuerzas en cada iteración para convergencia más rápida
+            factor = 1.0 - (iteracion / iteraciones) * 0.5
+            
             fuerzas = {nodo: [0, 0] for nodo in nodos}
             
-            # Fuerzas de repulsion entre todos los nodos
-            nodos_lista = list(nodos)
+            # Fuerzas de repulsion (optimizado)
             for i, nodo1 in enumerate(nodos_lista):
                 for nodo2 in nodos_lista[i+1:]:
                     dx = posiciones[nodo2][0] - posiciones[nodo1][0]
                     dy = posiciones[nodo2][1] - posiciones[nodo1][1]
                     dist = math.sqrt(dx*dx + dy*dy)
                     
-                    if dist > 0:
+                    if dist > 0 and dist < k * 3:  # Solo calcular si están cerca
                         # Fuerza de repulsion
-                        f_rep = c_rep / (dist * dist)
+                        f_rep = (c_rep / (dist * dist)) * factor
                         fx = (dx / dist) * f_rep
                         fy = (dy / dist) * f_rep
                         
@@ -657,7 +674,7 @@ class VisualizadorGrafo:
                             
                             if dist > 0:
                                 # Fuerza del resorte
-                                f_spring = c_spring * math.log(dist / k)
+                                f_spring = c_spring * math.log(dist / k) * factor
                                 fx = (dx / dist) * f_spring
                                 fy = (dy / dist) * f_spring
                                 
@@ -675,15 +692,45 @@ class VisualizadorGrafo:
         
         return posiciones
     
+    
+    def _layout_circular(self, nodos):
+        """Layout circular para pocos nodos"""
+        posiciones = {}
+        n = len(nodos)
+    
+        if n == 0:
+            return posiciones
+    
+        # Centro del canvas
+        cx = self.ancho / 2
+        cy = self.alto / 2
+    
+        # Radio del círculo - más grande para mejor visualización
+        radio = min(self.ancho, self.alto) * 0.25
+    
+        if n == 1:
+            posiciones[nodos[0]] = [cx, cy]
+        elif n == 2:
+            # Para 2 nodos, ponerlos horizontalmente
+            posiciones[nodos[0]] = [cx - radio, cy]
+            posiciones[nodos[1]] = [cx + radio, cy]
+        else:
+            for i, nodo in enumerate(nodos):
+                angulo = 2 * math.pi * i / n - math.pi / 2  # Empezar desde arriba
+                x = cx + radio * math.cos(angulo)
+                y = cy + radio * math.sin(angulo)
+                posiciones[nodo] = [x, y]
+        return posiciones
+    
     def dibujar_grafo(self, subgrafo=None, camino=None, nodos_destacados=None):
+        """
+        Dibuja el grafo en el canvas.
         
-        #Dibuja el grafo en el canvas.
-        
-        #Args:
-        #    subgrafo: si se proporciona, solo dibuja este subgrafo
-        #    camino: lista de nodos que forman un camino para destacar
-        #    nodos_destacados: conjunto de nodos para destacar
-        
+        Args:
+            subgrafo: si se proporciona, solo dibuja este subgrafo
+            camino: lista de nodos que forman un camino para destacar
+            nodos_destacados: conjunto de nodos para destacar
+        """
         self.limpiar()
         
         grafo_a_dibujar = subgrafo if subgrafo else self.grafo
@@ -694,6 +741,10 @@ class VisualizadorGrafo:
             nodos.add(nodo)
             nodos.update(grafo_a_dibujar[nodo])
         
+        # IMPORTANTE: Si se especifica nodos_destacados, SOLO usar esos nodos
+        if nodos_destacados:
+            nodos = set(nodos_destacados)
+        
         if not nodos:
             return
         
@@ -703,7 +754,11 @@ class VisualizadorGrafo:
         # Dibujar aristas primero para que queden debajo de los nodos
         aristas_dibujadas = set()
         for nodo in grafo_a_dibujar:
+            if nodo not in nodos:  # Solo dibujar si el nodo está en el conjunto
+                continue
             for vecino in grafo_a_dibujar[nodo]:
+                if vecino not in nodos:  # Solo dibujar si el vecino está en el conjunto
+                    continue
                 arista = tuple(sorted([nodo, vecino]))
                 if arista not in aristas_dibujadas and vecino in self.posiciones:
                     aristas_dibujadas.add(arista)
@@ -737,24 +792,24 @@ class VisualizadorGrafo:
                 
                 # Determinar color y tamaño del nodo
                 color = "#64b5f6"
-                radio = 20
+                radio = 25  # Aumentado de 20 a 25
                 color_texto = "black"
                 
                 if camino:
                     if nodo == camino[0]:  # Origen
                         color = "#4caf50"
-                        radio = 25
+                        radio = 30  # Aumentado de 25 a 30
                         color_texto = "white"
                     elif nodo == camino[-1]:  # Destino
                         color = "#f44336"
-                        radio = 25
+                        radio = 30
                         color_texto = "white"
                     elif nodo in camino:  # En el camino
                         color = "#ffd54f"
-                        radio = 22
+                        radio = 27
                 
                 if nodos_destacados and nodo in nodos_destacados:
-                    radio = 25
+                    radio = 30  # Aumentado de 25 a 30
                     if not camino or nodo not in camino:
                         color = "#9c27b0"
                         color_texto = "white"
@@ -763,20 +818,20 @@ class VisualizadorGrafo:
                 circulo = self.canvas.create_oval(
                     x - radio, y - radio,
                     x + radio, y + radio,
-                    fill=color, outline="white", width=2,
+                    fill=color, outline="white", width=3,  # Borde más grueso
                     tags=("nodo", f"nodo_{nodo}")
                 )
                 
                 # Dibujar nombre del nodo
                 nombre = self.usuarios.get(nodo, f"ID: {nodo}")
                 # Truncar nombre si es muy largo
-                if len(nombre) > 12:
-                    nombre = nombre[:10] + "..."
+                if len(nombre) > 10:
+                    nombre = nombre[:8] + "..."
                 
                 texto = self.canvas.create_text(
                     x, y,
                     text=nombre,
-                    font=("Arial", 9, "bold"),
+                    font=("Arial", 10, "bold"),  # Aumentado de 9 a 10
                     fill=color_texto,
                     tags=("texto", f"texto_{nodo}")
                 )
@@ -785,6 +840,7 @@ class VisualizadorGrafo:
                 
                 # Agregar tooltip con nombre completo
                 self.agregar_tooltip(nodo, circulo)
+                
     
     def agregar_tooltip(self, nodo_id, elemento):
         #Agrega un tooltip al pasar el mouse sobre un nodo
@@ -860,6 +916,35 @@ def analizar_grafo(grafo, usuarios):
         'nodos_mas_conectados': nodos_mas_conectados
     }
 
+def obtener_subgrafo_comunidad(grafo, id_comunidad, comunidades):
+    """
+    Obtiene el subgrafo de una comunidad específica.
+    
+    Args:
+        grafo: grafo completo
+        id_comunidad: ID de la comunidad a visualizar
+        comunidades: diccionario de comunidades {id_com: [usuarios]}
+    
+    Returns:
+        subgrafo: diccionario con solo los nodos y aristas de la comunidad
+        nodos_incluidos: conjunto de nodos en la comunidad
+    """
+    if id_comunidad not in comunidades:
+        return defaultdict(list), set()
+    
+    nodos_comunidad = set(comunidades[id_comunidad])
+    
+    # Crear subgrafo solo con conexiones dentro de la comunidad
+    subgrafo = defaultdict(list)
+    for nodo in nodos_comunidad:
+        if nodo in grafo:
+            for vecino in grafo[nodo]:
+                if vecino in nodos_comunidad:
+                    # Evitar duplicados
+                    if vecino not in subgrafo[nodo]:
+                        subgrafo[nodo].append(vecino)
+    
+    return subgrafo, nodos_comunidad
 
 # Funciones auxiliares para visualizacion simplificada (mantener compatibilidad)
 def dibujar_grafo_graphviz(*args, **kwargs):

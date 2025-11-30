@@ -872,12 +872,12 @@ class RedSocialApp:
                  font=("Arial", 11)).pack(pady=15)
     
     def ver_comunidades(self):
-        """Muestra todas las comunidades creadas"""
+        """Muestra todas las comunidades creadas con opción de visualizar cada una"""
         comunidades = sistema_comunidades.obtener_todas_comunidades(usuarios)
         
         ventana = tk.Toplevel(self.root)
         ventana.title("Comunidades Existentes")
-        ventana.geometry("450x400")
+        ventana.geometry("500x450")
         ventana.configure(bg="white")
         
         tk.Label(ventana, text=" Comunidades Existentes", 
@@ -906,18 +906,134 @@ class RedSocialApp:
                 frame_com = tk.Frame(scrollable_frame, bg="#f0f0f0", relief=tk.RAISED, bd=1)
                 frame_com.pack(fill="x", pady=5, padx=10)
                 
-                tk.Label(frame_com, text=f" {com['nombre']}", 
-                        font=("Arial", 11, "bold"), bg="#f0f0f0").pack(anchor="w", pady=(5,0), padx=10)
+                # Frame superior con nombre y botón
+                frame_header = tk.Frame(frame_com, bg="#f0f0f0")
+                frame_header.pack(fill="x", pady=5, padx=10)
+                
+                tk.Label(frame_header, text=f" {com['nombre']}", 
+                        font=("Arial", 11, "bold"), bg="#f0f0f0").pack(side="left")
+                
+                # Botón para visualizar la comunidad
+                tk.Button(frame_header, text=" Ver Grafo", 
+                         command=lambda c=com: self.visualizar_comunidad_especifica(c),
+                         bg="#673AB7", fg="white", font=("Arial", 9), width=10).pack(side="right")
                 
                 usuarios_text = ", ".join(com['nombres_usuarios'][:5])
                 if len(com['nombres_usuarios']) > 5:
                     usuarios_text += f"... (+{len(com['nombres_usuarios'])-5} más)"
                 
-                tk.Label(frame_com, text=f"Miembros: {usuarios_text}", 
-                        font=("Arial", 9), bg="#f0f0f0", wraplength=380).pack(anchor="w", pady=(0,5), padx=10)
+                tk.Label(frame_com, text=f"Miembros ({len(com['usuarios'])}): {usuarios_text}", 
+                        font=("Arial", 9), bg="#f0f0f0", wraplength=400).pack(anchor="w", pady=(0,5), padx=10)
             
             canvas.pack(side="left", fill="both", expand=True)
             scrollbar.pack(side="right", fill="y")
+    
+    def visualizar_comunidad_especifica(self, comunidad_info):
+        """
+        Visualiza el grafo de una comunidad específica.
+        
+        Args:
+            comunidad_info: diccionario con información de la comunidad
+        """
+        from grafos import obtener_subgrafo_comunidad
+        
+        id_com = comunidad_info['id']
+        nombre_com = comunidad_info['nombre']
+        usuarios_com = comunidad_info['usuarios']
+        
+        # Verificar que la comunidad no esté vacía
+        if not usuarios_com:
+            messagebox.showinfo(
+                "Info", 
+                f"La comunidad '{nombre_com}' no tiene miembros."
+            )
+            return
+        
+        # Mostrar mensaje de carga para comunidades grandes
+        if len(usuarios_com) > 15:
+            self.info_label.config(text=f"Cargando visualización de {nombre_com}...")
+            self.root.update()
+        
+        # Obtener subgrafo de la comunidad
+        subgrafo, nodos = obtener_subgrafo_comunidad(
+            grafo, 
+            id_com, 
+            sistema_comunidades.comunidades
+        )
+        
+        if not nodos:
+            messagebox.showinfo(
+                "Info", 
+                f"La comunidad '{nombre_com}' no tiene miembros para mostrar."
+            )
+            return
+        
+        # Verificar si hay demasiados nodos
+        if len(nodos) > 50:
+            respuesta = messagebox.askyesno(
+                "Comunidad grande",
+                f"La comunidad '{nombre_com}' tiene {len(nodos)} miembros.\n"
+                f"La visualización podría ser lenta.\n\n"
+                f"¿Deseas continuar?"
+            )
+            if not respuesta:
+                return
+        
+        try:
+            # Visualizar
+            if self.visualizador:
+                self.visualizador.dibujar_grafo(subgrafo, nodos_destacados=nodos)
+            
+            # Calcular estadísticas de la comunidad
+            num_conexiones = sum(len(vecinos) for vecinos in subgrafo.values()) // 2
+            
+            self.info_label.config(
+                text=f"Comunidad: {nombre_com} - {len(nodos)} miembros - {num_conexiones} conexiones internas"
+            )
+            
+            # Mostrar ventana con detalles
+            self.mostrar_detalle_comunidad(comunidad_info, num_conexiones)
+            
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Error al visualizar la comunidad:\n{str(e)}"
+            )
+            self.info_label.config(text="Error en la visualización")
+    
+    def mostrar_detalle_comunidad(self, comunidad_info, num_conexiones):
+        """Muestra una ventana con los detalles de la comunidad"""
+        ventana = tk.Toplevel(self.root)
+        ventana.title(f"Detalle: {comunidad_info['nombre']}")
+        ventana.geometry("400x350")
+        ventana.configure(bg="white")
+        
+        tk.Label(ventana, text=f" {comunidad_info['nombre']}", 
+                font=("Arial", 14, "bold"), bg="white").pack(pady=10)
+        
+        frame_info = tk.Frame(ventana, bg="#f5f5f5", relief=tk.RAISED, bd=1)
+        frame_info.pack(padx=20, pady=10, fill="both", expand=True)
+        
+        info_text = f"""
+ INFORMACIÓN DE LA COMUNIDAD
+
+- ID: {comunidad_info['id']}
+- Nombre: {comunidad_info['nombre']}
+- Número de miembros: {len(comunidad_info['usuarios'])}
+- Conexiones internas: {num_conexiones}
+
+ MIEMBROS:
+
+"""
+        
+        for i, nombre in enumerate(comunidad_info['nombres_usuarios'], 1):
+            info_text += f"   {i}. {nombre}\n"
+        
+        texto = tk.Text(frame_info, wrap=tk.WORD, font=("Arial", 10), 
+                       bg="#f5f5f5", relief=tk.FLAT)
+        texto.pack(padx=10, pady=10, fill="both", expand=True)
+        texto.insert(tk.END, info_text)
+        texto.config(state=tk.DISABLED)
     
     def mostrar_estadisticas(self):
         """Muestra estadísticas del grafo"""
